@@ -144,7 +144,7 @@ function seed(){
    workouts:[
     {id:'A',title:'Peito e tríceps',ex:[E('Supino reto com barra',4,'8-10',90),E('Supino inclinado com halteres',3,'8-12',90),E('Voador no crossover',3,'12-15',60),E('Tríceps corda na polia',3,'10-12',60),E('Tríceps francês sentado',3,'10-12',60)]},
     {id:'B',title:'Costas e bíceps',ex:[E('Barra fixa',4,'6-10',90),E('Puxada pronada',3,'8-12',75),E('Puxada neutra na máquina',3,'10-12',75),E('Remada máquina com apoio no peito',3,'10-12',75,'Apoio no peito protege a lombar'),E('Rosca direta com barra',3,'8-12',60),E('Rosca martelo',3,'10-12',60)]},
-    {id:'C',title:'Pernas completo',ex:[E('Cadeira extensora',4,'10-15',75),E('Passada (avanço) com halteres',3,'10 cada perna',75,'Carga leve, tronco reto. Pule se incomodar a lombar'),E('Mesa flexora (flexora deitada)',4,'10-12',75),E('Cadeira abdutora',3,'15',60),E('Cadeira adutora',3,'15',60),E('Panturrilha sentado',4,'12-15',45),E('Extensão lombar no banco romano',3,'12-15',60,'Sem carga, movimento controlado')]},
+    {id:'C',title:'Pernas completo',ex:[E('Cadeira extensora',6,'12-15 / 8-10',75,'Único de anterior: 3 séries de 12-15 leves, depois 3 de 8-10 pesadas. Última série pode ser drop-set'),E('Passada (avanço) com halteres',3,'10 cada perna',75,'Carga leve, tronco reto. Pule se incomodar a lombar'),E('Mesa flexora (flexora deitada)',4,'10-12',75),E('Cadeira abdutora',3,'15',60),E('Cadeira adutora',3,'15',60),E('Panturrilha sentado',4,'12-15',45),E('Extensão lombar no banco romano',3,'12-15',60,'Sem carga, movimento controlado')]},
     {id:'D',title:'Complementar: ombro e braços',ex:[E('Elevação lateral com halteres',4,'12-15',45),E('Desenvolvimento com halteres (sentado com encosto)',3,'8-12',75),E('Face pull',3,'12-15',60),E('Rosca concentrada',3,'10-12',45),E('Tríceps testa',3,'10-12',60),E('Abdominal na máquina',3,'15-20',45)]},
    ],
    schedule:{1:'A',2:'B',3:'C',4:'D',5:null,6:null,0:null}};
@@ -156,13 +156,20 @@ function seed(){
     {id:'D',title:'Bíceps, tríceps e ombro',ex:[E('Desenvolvimento com halteres (sentado com encosto)',3,'10-12',75),E('Elevação lateral com halteres',4,'12-15',45),E('Tríceps francês sentado',3,'10-12',60),E('Tríceps corda na polia',3,'12',45),E('Rosca direta com barra',3,'10-12',60),E('Rosca concentrada',3,'10-12',45),E('Prancha',3,'30-45s',45)]},
    ],
    schedule:{1:'A',2:'B',3:'C',4:'D',5:null,6:null,0:null}};
-  return {v:1,active:'leo',profiles:{leo,hel},custom:[],session:null};
+  return {v:2,active:'leo',profiles:{leo,hel},custom:[],session:null};
 }
 
 /* ---------- Estado ---------- */
 const KEY='kusunoki-fitness-v1';
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.profiles) S=seed();
+// Atualizações de treino para quem já usa o app
+if((S.v||1)<2){
+  const c=S.profiles.leo&&S.profiles.leo.workouts.find(w=>w.id==='C');
+  const e=c&&c.ex.find(x=>x.n==='Cadeira extensora');
+  if(e&&e.s<6){e.s=6;e.r='12-15 / 8-10';e.note='Único de anterior: 3 séries de 12-15 leves, depois 3 de 8-10 pesadas. Última série pode ser drop-set'}
+  S.v=2;
+}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const P=()=>S.profiles[S.active];
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
