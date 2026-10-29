@@ -78,6 +78,23 @@ label.f{display:block;margin:10px 0 4px;font-size:13px;color:var(--muted)}
 .warn{color:#ffc65c;font-size:12px}
 hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 .mv{padding:6px 8px;color:var(--muted)}
+.meta.tap{cursor:pointer}
+.meta.tap .pill{border:1px dashed var(--line)}
+.pill.adj{background:rgba(61,214,163,.15);color:var(--accent2)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{background:var(--card2);border-radius:10px;padding:8px 12px;font-weight:600;color:var(--muted)}
+.chips button.on{background:var(--accent);color:#111}
+.stepper{display:flex;align-items:center;gap:16px;justify-content:center;margin:10px 0}
+.stepper button{width:44px;height:44px;border-radius:50%;background:var(--card2);font-size:22px;font-weight:700}
+.stepper b{font-size:28px;min-width:40px;text-align:center}
+.cmp{display:grid;grid-template-columns:70px 1fr 54px;gap:8px;align-items:center;margin:6px 0;font-size:14px}
+.cmp .bar{height:12px;border-radius:6px;background:var(--card2);overflow:hidden}
+.cmp .bar i{display:block;height:100%;border-radius:6px}
+.vol{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+.pill.ok{background:rgba(61,214,163,.15);color:var(--accent2)}
+.pill.low{background:rgba(255,198,92,.15);color:#ffc65c}
+.pill.high{background:rgba(255,90,95,.15);color:var(--danger)}
+textarea{min-height:90px;resize:vertical}
 </style>
 </head>
 <body>
@@ -140,7 +157,7 @@ const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const E=(n,s,r,rest=75,note='')=>({n,s,r,rest,note});
 let _id=0; const uid=()=>Date.now().toString(36)+(_id++).toString(36);
 function seed(){
-  const leo={name:'Leonardo',avoidLumbar:true,mode:'semana',loads:{},history:[],
+  const leo={name:'Leonardo',kg:85,cm:180,avoidLumbar:true,mode:'semana',loads:{},history:[],
    workouts:[
     {id:'A',title:'Peito e tríceps',ex:[E('Supino reto com barra',4,'8-10',90),E('Supino inclinado com halteres',3,'8-12',90),E('Voador no crossover',3,'12-15',60),E('Tríceps corda na polia',3,'10-12',60),E('Tríceps francês sentado',3,'10-12',60)]},
     {id:'B',title:'Costas e bíceps',ex:[E('Barra fixa',4,'6-10',90),E('Puxada pronada',3,'8-12',75),E('Puxada neutra na máquina',3,'10-12',75),E('Remada máquina com apoio no peito',3,'10-12',75,'Apoio no peito protege a lombar'),E('Rosca direta com barra',3,'8-12',60),E('Rosca martelo',3,'10-12',60)]},
@@ -148,7 +165,7 @@ function seed(){
     {id:'D',title:'Complementar: ombro e braços',ex:[E('Elevação lateral com halteres',4,'12-15',45),E('Desenvolvimento com halteres (sentado com encosto)',3,'8-12',75),E('Face pull',3,'12-15',60),E('Rosca concentrada',3,'10-12',45),E('Tríceps testa',3,'10-12',60),E('Abdominal na máquina',3,'15-20',45)]},
    ],
    schedule:{1:'A',2:'B',3:'C',4:'D',5:null,6:null,0:null}};
-  const hel={name:'Helena',avoidLumbar:false,mode:'semana',loads:{},history:[],
+  const hel={name:'Helena',kg:53,cm:158,avoidLumbar:false,mode:'semana',loads:{},history:[],
    workouts:[
     {id:'A',title:'Posterior e glúteo',ex:[E('Elevação pélvica',4,'8-12',90),E('Levantamento terra romeno',3,'8-10',90),E('Mesa flexora (flexora deitada)',3,'10-12',60),E('Agachamento búlgaro',3,'10 cada perna',75),E('Cadeira abdutora',3,'15',45),E('Cadeira flexora',3,'12',60)]},
     {id:'B',title:'Peito e costas',ex:[E('Puxada pronada',3,'10-12',75),E('Barra fixa assistida (graviton)',3,'8-10',75),E('Supino reto com halteres',3,'10-12',75),E('Remada baixa no cabo',3,'10-12',60),E('Voador no crossover',3,'12-15',60),E('Abdominal supra no solo',3,'15-20',45)]},
@@ -156,7 +173,7 @@ function seed(){
     {id:'D',title:'Bíceps, tríceps e ombro',ex:[E('Desenvolvimento com halteres (sentado com encosto)',3,'10-12',75),E('Elevação lateral com halteres',4,'12-15',45),E('Tríceps francês sentado',3,'10-12',60),E('Tríceps corda na polia',3,'12',45),E('Rosca direta com barra',3,'10-12',60),E('Rosca concentrada',3,'10-12',45),E('Prancha',3,'30-45s',45)]},
    ],
    schedule:{1:'A',2:'B',3:'C',4:'D',5:null,6:null,0:null}};
-  return {v:2,active:'leo',profiles:{leo,hel},custom:[],session:null};
+  return {v:3,active:'leo',profiles:{leo,hel},custom:[],session:null,ideas:[]};
 }
 
 /* ---------- Estado ---------- */
@@ -169,6 +186,11 @@ if((S.v||1)<2){
   const e=c&&c.ex.find(x=>x.n==='Cadeira extensora');
   if(e&&e.s<6){e.s=6;e.r='12-15 / 8-10';e.note='Único de anterior: 3 séries de 12-15 leves, depois 3 de 8-10 pesadas. Última série pode ser drop-set'}
   S.v=2;
+}
+if(S.v<3){
+  const b={leo:[85,180],hel:[53,158]};
+  for(const k in b) if(S.profiles[k]&&!S.profiles[k].kg){S.profiles[k].kg=b[k][0];S.profiles[k].cm=b[k][1]}
+  S.ideas=S.ideas||[]; S.v=3;
 }
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const P=()=>S.profiles[S.active];
@@ -198,7 +220,8 @@ const W=id=>P().workouts.find(w=>w.id===id);
 // sessão do dia: trocas temporárias e exercícios marcados
 function sess(wid){
   const s=S.session;
-  if(!s||s.d!==today()||s.p!==S.active||s.w!==wid){S.session={d:today(),p:S.active,w:wid,swaps:{},done:{}};save();}
+  if(!s||s.d!==today()||s.p!==S.active||s.w!==wid){S.session={d:today(),p:S.active,w:wid,swaps:{},done:{},adj:{}};save();}
+  S.session.adj=S.session.adj||{};
   return S.session;
 }
 
@@ -245,7 +268,7 @@ function vHoje(){
         <div class="name">${esc(name)}</div>
         ${s.swaps[i]?`<div class="swapped">Trocado hoje (original: ${esc(e.n)})</div>`:''}
         ${p.avoidLumbar&&info.lomb?`<div class="warn">⚠ Coloca carga na lombar</div>`:''}
-        <div class="meta"><span class="pill">${e.s} séries</span><span class="pill">${esc(e.r)} reps</span><span class="pill">${e.rest}s descanso</span></div>
+        ${(()=>{const a=s.adj[i];return `<div class="meta tap" onclick="adjSheet('${w.id}',${i})" title="Ajustar séries e repetições de hoje"><span class="pill ${a?'adj':''}">${a?a.s:e.s} séries</span><span class="pill ${a?'adj':''}">${esc(a?a.r:e.r)} reps</span><span class="pill">${e.rest}s descanso</span></div>${a?`<div class="swapped">Ajustado hoje (plano: ${e.s} × ${esc(e.r)})${a.kg?` · carga sugerida ~${a.kg} kg`:''}</div>`:''}`})()}
         <div style="margin-top:8px" class="small">Última carga: ${ll?`<span class="load">${esc(ll.kg)} kg</span> <span class="muted">(${fmtDate(ll.d)})</span>`:'<span class="muted">ainda não registrada</span>'}</div>
         ${e.note?`<div class="muted small" style="margin-top:4px">${esc(e.note)}</div>`:''}
         <div class="actions">
@@ -263,8 +286,59 @@ function toggleDone(i){const s=S.session;s.done[i]=!s.done[i];save();render()}
 function finish(wid){
   const p=P(); const w=W(wid);
   if(p.history.some(x=>x.d===today()&&x.w===wid)){toast('Esse treino já está marcado hoje');return}
-  p.history.push({d:today(),w:wid,t:w.title});save();toast('Treino concluído! 💪');render();
+  p.history.push({d:today(),w:wid,t:w.title,vol:workVolume(wid)});save();toast('Treino concluído! 💪');render();
 }
+
+/* ---------- Volume e equivalência ---------- */
+// média das repetições de um texto como "12-15" ou "10 cada perna". Tempo (ex: "30-45s") não conta.
+function repsAvg(r){r=String(r);if(/\d\s*s\b/i.test(r)&&!/s[ée]rie/i.test(r))return null;const n=(r.match(/\d+(?:[.,]\d+)?/g)||[]).map(x=>parseFloat(x.replace(',','.')));return n.length?n.reduce((a,b)=>a+b,0)/n.length:null}
+const kgNum=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n};
+// Fórmula de Epley: mesma intensidade relativa -> carga para r reps = 1RM / (1 + r/30)
+const epley=r=>1+r/30;
+function equiv(s0,r0,r1,kg0){
+  const sets=s0*r0*epley(r1)/(r1*epley(r0));
+  const kg=kg0!=null?Math.round(kg0*epley(r0)/epley(r1)*2)/2:null;
+  return {sets,kg};
+}
+function workVolume(wid){
+  const w=W(wid),s=S.session&&S.session.w===wid?S.session:{swaps:{},done:{},adj:{}};
+  const anyDone=Object.values(s.done||{}).some(Boolean); let v=0;
+  w.ex.forEach((e,i)=>{if(anyDone&&!s.done[i])return;const n=s.swaps[i]||e.n;const a=(s.adj||{})[i];
+    const r=repsAvg(a?a.r:e.r),ll=lastLoad(n),kg=a&&a.kg?a.kg:(ll?kgNum(ll.kg):null);
+    if(r&&kg) v+=(a?a.s:e.s)*r*kg});
+  return Math.round(v);
+}
+const RANGES=['6-8','8-10','10-12','12-15','15-20'];
+let adjState=null;
+function adjSheet(wid,i){
+  const e=W(wid).ex[i],s=sess(wid),a=s.adj[i];
+  adjState={wid,i,r:a?a.r:null,s:a?a.s:null};
+  drawAdj();
+}
+function drawAdj(){
+  const {wid,i}=adjState,e=W(wid).ex[i],s=sess(wid),name=s.swaps[i]||e.n;
+  const r0=repsAvg(e.r),ll=lastLoad(name),kg0=ll?kgNum(ll.kg):null;
+  if(!r0){sheet(`<h3>${esc(name)}</h3><p class="muted">Esse exercício é por tempo, então não dá para calcular equivalência.</p><button class="btn ghost" onclick="closeSheet()">Fechar</button>`);return}
+  let body='';
+  if(adjState.r){
+    const r1=repsAvg(adjState.r),q=equiv(e.s,r0,r1,kg0);
+    if(adjState.s==null) adjState.s=Math.max(1,Math.round(q.sets));
+    const pct=Math.round(adjState.s/q.sets*100);
+    body=`<div class="card" style="background:var(--card2);margin-top:12px;text-align:center">
+      <div class="muted small">Séries de ${esc(adjState.r)}</div>
+      <div class="stepper"><button onclick="adjState.s=Math.max(1,adjState.s-1);drawAdj()" aria-label="Menos">−</button><b>${adjState.s}</b><button onclick="adjState.s++;drawAdj()" aria-label="Mais">+</button></div>
+      <div class="small">Equivalente ao plano: <b>${Math.round(q.sets*10)/10} séries</b> · você fica com <b style="color:${pct<90?'#ffc65c':pct>115?'var(--danger)':'var(--accent2)'}">${pct}%</b> do trabalho</div>
+      ${q.kg!=null?`<div class="small" style="margin-top:6px">Carga sugerida: <span class="load">~${q.kg} kg</span> <span class="muted">(última ${esc(ll.kg)} kg)</span></div>`:'<div class="muted small" style="margin-top:6px">Registre uma carga para ver a carga sugerida.</div>'}
+    </div>
+    <button class="btn" onclick="saveAdj(${q.kg!=null?q.kg:'null'})">Usar hoje</button>`;
+  }
+  sheet(`<h3>${esc(name)}</h3><div class="muted small">Plano: ${e.s} séries de ${esc(e.r)}. Escolha as repetições de hoje:</div>
+    <div class="chips" style="margin-top:10px">${RANGES.map(r=>`<button class="${adjState.r===r?'on':''}" onclick="adjState.r='${r}';adjState.s=null;drawAdj()">${r}</button>`).join('')}</div>
+    ${body}
+    ${s.adj[i]?`<div style="height:8px"></div><button class="btn ghost" onclick="delete sess('${wid}').adj[${i}];save();closeSheet();render()">Voltar ao plano</button>`:''}
+    <div class="muted small" style="margin-top:12px">O cálculo mantém o mesmo trabalho total (séries × repetições × carga), ajustando a carga para a nova faixa de repetições.</div>`);
+}
+function saveAdj(kg){const {wid,i}=adjState;sess(wid).adj[i]={s:adjState.s,r:adjState.r,kg};save();closeSheet();toast('Ajustado só para hoje');render()}
 
 /* ---------- Carga ---------- */
 function askLoad(enc){
@@ -351,6 +425,7 @@ function vPlano(){
   const w=W(planSel);
   let h=`<div class="card"><h3>Divisão de ${esc(p.name)}</h3><div class="muted small">${p.workouts.map(x=>x.id).join('')} · ${p.workouts.length} treinos</div>
    <div class="actions"><button class="btn sec sm" onclick="addWorkout()">+ Adicionar treino</button><button class="btn sec sm" onclick="schedSheet()">Dias da semana</button></div></div>`;
+  h+=weeklyVolume();
   h+=`<div class="tabs">${p.workouts.map(x=>`<button class="${x.id===planSel?'on':''}" onclick="planSel='${x.id}';render()">${esc(x.id)}</button>`).join('')}</div>`;
   if(!w) return h+'<div class="card muted">Nenhum treino. Adicione um acima.</div>';
   h+=`<div class="card"><label class="f">Nome do treino ${esc(w.id)}</label><input value="${esc(w.title)}" onchange="W('${w.id}').title=this.value;save()"></div>`;
@@ -368,6 +443,19 @@ function vPlano(){
   h+=`<button class="btn" onclick="addEx('${w.id}')">+ Adicionar exercício</button>
   <div style="height:12px"></div><button class="btn danger" onclick="rmWorkout('${w.id}')">Excluir treino ${esc(w.id)}</button>`;
   return h;
+}
+function weeklyVolume(){
+  const p=P(),cnt={};
+  p.workouts.forEach(w=>{
+    const times=p.mode==='semana'?Object.values(p.schedule).filter(x=>x===w.id).length:1;
+    w.ex.forEach(e=>{const g=exInfo(e.n).g;cnt[g]=(cnt[g]||0)+e.s*times})});
+  const main=['peito','costas','ombro','biceps','triceps','quadriceps','posterior','gluteo'];
+  const rows=Object.keys(GROUPS).filter(g=>cnt[g]).map(g=>{
+    const n=cnt[g];let tag='';
+    if(main.includes(g)) tag=n<10?'<span class="pill low">pouco · +'+(10-n)+'</span>':n>20?'<span class="pill high">muito · −'+(n-20)+'</span>':'<span class="pill ok">ok</span>';
+    return `<div class="vol"><span>${GROUPS[g]}</span><span class="row" style="gap:8px"><b>${n}</b>${tag}</span></div>`}).join('');
+  return `<details class="card"><summary style="font-weight:650;cursor:pointer">Séries por semana de cada grupo</summary>
+    <div class="muted small" style="margin:8px 0">Para hipertrofia, a referência é de 10 a 20 séries por grupo na semana. Conta só o músculo principal de cada exercício.</div>${rows}</details>`;
 }
 function setEx(wid,i,k,v){W(wid).ex[i][k]=v;save()}
 function mv(wid,i,d){const a=W(wid).ex;const j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render()}
@@ -419,6 +507,7 @@ function vProg(){
   // sequência de semanas atingindo meta
   let streak=0; for(let i=10;i>=0;i--){if(weeks[i].c>=target)streak++;else break} if(weeks[11].c>=target)streak++;
   let h=`<div class="grid3" style="margin-bottom:12px"><div class="stat"><b>${thisWeek}</b><span class="muted small">esta semana</span></div><div class="stat"><b>${month}</b><span class="muted small">este mês</span></div><div class="stat"><b>${hist.length}</b><span class="muted small">no total</span></div></div>`;
+  h+=compareCard();
   h+=`<div class="card"><h3>Treinos por semana</h3><div class="muted small">Linha laranja = meta de ${target} por semana. Semanas seguidas na meta: ${streak}</div>${svg}</div>`;
   // cargas registradas
   const loads=Object.entries(p.loads).filter(([,a])=>a.length).sort((a,b)=>b[1][b[1].length-1].d.localeCompare(a[1][a[1].length-1].d));
@@ -427,6 +516,27 @@ function vProg(){
   h+=`<div class="card"><h3>Últimos treinos</h3>${hist.slice(-15).reverse().map((x,k)=>`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="pill acc">${esc(x.w)}</span><span style="flex:1">${esc(x.t||'')}</span><span class="muted small">${fmtDate(x.d)}</span><button class="mv" onclick="rmHist(${hist.length-1-k})" aria-label="Apagar">✕</button></div>`).join('')||'<p class="muted">Nada ainda. Conclua um treino na aba Hoje.</p>'}</div>`;
   return h;
 }
+function compareCard(){
+  const ks=Object.keys(S.profiles); if(ks.length<2) return '';
+  const cols={leo:'#ff7a3d',hel:'#3dd6a3'};
+  const since=new Date();since.setDate(since.getDate()-28);const sinceS=since.toISOString().slice(0,10);
+  const stat=k=>{const p=S.profiles[k],h=p.history.filter(x=>x.d>=sinceS);
+    const vols=h.map(x=>x.vol).filter(Boolean);
+    const relVol=vols.length&&p.kg?vols.reduce((a,b)=>a+b,0)/vols.length/p.kg:null;
+    const evo=Object.values(p.loads).filter(a=>a.length>1).map(a=>{const f=kgNum(a[0].kg),l=kgNum(a[a.length-1].kg);return f&&l?(l-f)/f*100:null}).filter(x=>x!=null);
+    return {name:p.name,n:h.length,relVol,evo:evo.length?evo.reduce((a,b)=>a+b,0)/evo.length:null};};
+  const st=ks.map(k=>({k,...stat(k)}));
+  const block=(title,key,fmt,hint)=>{
+    const vals=st.map(x=>x[key]);if(vals.every(v=>v==null||v===0))return `<div style="margin-top:12px"><div class="small"><b>${title}</b></div><div class="muted small">${hint}</div></div>`;
+    const max=Math.max(...vals.map(v=>Math.abs(v||0)),0.0001);
+    return `<div style="margin-top:12px"><div class="small"><b>${title}</b></div>${st.map(x=>`<div class="cmp"><span>${esc(x.name.split(' ')[0])}</span><div class="bar"><i style="width:${Math.max(2,Math.abs(x[key]||0)/max*100)}%;background:${cols[x.k]||'#888'}"></i></div><b style="text-align:right">${x[key]==null?'–':fmt(x[key])}</b></div>`).join('')}</div>`};
+  return `<div class="card"><h3>${st.map(x=>esc(x.name.split(' ')[0])).join(' x ')} · últimas 4 semanas</h3>
+   <div class="muted small">Para ser justo, o volume é dividido pelo peso de cada um e a evolução é em % sobre a própria carga inicial.</div>
+   ${block('Treinos feitos','n',v=>v,'')}
+   ${block('Volume por treino ÷ peso corporal','relVol',v=>Math.round(v),'Aparece quando os dois concluírem treinos com carga registrada.')}
+   ${block('Evolução média das cargas','evo',v=>(v>=0?'+':'')+Math.round(v)+'%','Aparece quando houver pelo menos 2 registros de carga no mesmo exercício.')}
+  </div>`;
+}
 function rmHist(i){ask('Apagar este treino do histórico?','Apagar',()=>{P().history.splice(i,1);save();render()})}
 
 /* ---------- Ajustes ---------- */
@@ -434,12 +544,26 @@ function vAjustes(){
   const p=P();
   return `<div class="card"><h3>Perfil</h3>
    <label class="f">Nome</label><input value="${esc(p.name)}" onchange="P().name=this.value;save();render()">
+   <div class="grid2"><div><label class="f">Peso (kg)</label><input type="number" inputmode="decimal" value="${p.kg||''}" onchange="P().kg=kgNum(this.value);save()"></div><div><label class="f">Altura (cm)</label><input type="number" inputmode="numeric" value="${p.cm||''}" onchange="P().cm=+this.value||null;save()"></div></div>
    <label class="row" style="margin-top:14px;gap:12px"><input type="checkbox" style="width:22px;height:22px" ${p.avoidLumbar?'checked':''} onchange="P().avoidLumbar=this.checked;save()"><span>Evitar exercícios com carga na lombar<br><span class="muted small">Esconde essas opções nas sugestões de troca e mostra um aviso</span></span></label></div>
+  <div class="card"><h3>Sugestões de mudança</h3><p class="muted small">Anote aqui o que melhorar. Depois toque em Enviar e escolha o Claude: o texto vai pronto para o chat.</p>
+   <textarea id="idea" placeholder="ex: trocar a passada por agachamento búlgaro no treino C"></textarea>
+   <div class="actions"><button class="btn sec sm" onclick="addIdea()">Salvar</button>${(S.ideas||[]).some(x=>!x.sent)?`<button class="btn sm" onclick="sendIdeas()">Enviar ${(S.ideas||[]).filter(x=>!x.sent).length} para o Claude</button>`:''}</div>
+   ${(S.ideas||[]).slice().reverse().map(x=>`<div class="row small" style="padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;${x.sent?'color:var(--muted)':''}">${esc(x.t)}<br><span class="muted">${esc(x.p)} · ${fmtDate(x.d)}${x.sent?' · enviada':''}</span></span><button class="mv" onclick="rmIdea(${x.id})" aria-label="Apagar">✕</button></div>`).join('')}</div>
   <div class="card"><h3>Backup</h3><p class="muted small">Os dados ficam salvos neste celular. Faça um backup de vez em quando ou para passar para outro aparelho.</p>
    <div class="actions"><button class="btn sec sm" onclick="exportData()">Baixar backup</button><button class="btn sec sm" onclick="document.getElementById('imp').click()">Restaurar backup</button></div>
    <input type="file" id="imp" accept="application/json,.json" style="display:none" onchange="importData(this)"></div>
   <div class="card"><h3>Instalar no celular</h3><p class="muted small"><b>iPhone:</b> abra no Safari, toque em Compartilhar e depois em "Adicionar à Tela de Início".<br><b>Android:</b> no Chrome, toque nos 3 pontinhos e em "Instalar app" ou "Adicionar à tela inicial".<br>Depois de aberto uma vez, funciona sem internet.</p></div>
   <div class="card"><h3>Recomeçar</h3><p class="muted small">Volta os treinos de ${esc(p.name)} para a sugestão inicial. Histórico e cargas são mantidos.</p><button class="btn danger sm" onclick="resetPlan()">Restaurar treino sugerido</button></div>`;
+}
+function addIdea(){const t=document.getElementById('idea').value.trim();if(!t)return;S.ideas=S.ideas||[];S.ideas.push({id:Date.now(),t,p:P().name,d:today(),sent:false});save();toast('Sugestão salva');render()}
+function rmIdea(id){S.ideas=S.ideas.filter(x=>x.id!==id);save();render()}
+async function sendIdeas(){
+  const list=S.ideas.filter(x=>!x.sent);
+  const text='Sugestões para o app Kusunoki Fitness:\n'+list.map(x=>`- (${x.p}, ${fmtDate(x.d)}) ${x.t}`).join('\n');
+  const mark=()=>{list.forEach(x=>x.sent=true);save();render()};
+  if(navigator.share){try{await navigator.share({text});mark();return}catch(e){if(e&&e.name==='AbortError')return}}
+  try{await navigator.clipboard.writeText(text);mark();toast('Copiado! Cole no chat do Claude')}catch(e){sheet(`<h3>Copie e cole no chat do Claude</h3><textarea style="min-height:180px">${esc(text)}</textarea><div class="actions"><button class="btn" onclick="closeSheet()">Fechar</button></div>`)}
 }
 function exportData(){
   const blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});
