@@ -192,7 +192,7 @@ if(S.v<3){
   for(const k in b) if(S.profiles[k]&&!S.profiles[k].kg){S.profiles[k].kg=b[k][0];S.profiles[k].cm=b[k][1]}
   S.ideas=S.ideas||[]; S.v=3;
 }
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const save=(noSync)=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){};if(!noSync)syncSoon()};
 const P=()=>S.profiles[S.active];
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const allEx=()=>LIB.concat(S.custom);
@@ -537,7 +537,7 @@ function compareCard(){
    ${block('Evolução média das cargas','evo',v=>(v>=0?'+':'')+Math.round(v)+'%','Aparece quando houver pelo menos 2 registros de carga no mesmo exercício.')}
   </div>`;
 }
-function rmHist(i){ask('Apagar este treino do histórico?','Apagar',()=>{P().history.splice(i,1);save();render()})}
+function rmHist(i){ask('Apagar este treino do histórico?','Apagar',()=>{const p=P(),x=p.history[i];p.delHist=p.delHist||[];p.delHist.push(x.d+'|'+x.w);p.history.splice(i,1);save();render()})}
 
 /* ---------- Ajustes ---------- */
 function vAjustes(){
@@ -546,6 +546,7 @@ function vAjustes(){
    <label class="f">Nome</label><input value="${esc(p.name)}" onchange="P().name=this.value;save();render()">
    <div class="grid2"><div><label class="f">Peso (kg)</label><input type="number" inputmode="decimal" value="${p.kg||''}" onchange="P().kg=kgNum(this.value);save()"></div><div><label class="f">Altura (cm)</label><input type="number" inputmode="numeric" value="${p.cm||''}" onchange="P().cm=+this.value||null;save()"></div></div>
    <label class="row" style="margin-top:14px;gap:12px"><input type="checkbox" style="width:22px;height:22px" ${p.avoidLumbar?'checked':''} onchange="P().avoidLumbar=this.checked;save()"><span>Evitar exercícios com carga na lombar<br><span class="muted small">Esconde essas opções nas sugestões de troca e mostra um aviso</span></span></label></div>
+  ${syncCard()}
   <div class="card"><h3>Sugestões de mudança</h3><p class="muted small">Anote aqui o que melhorar. Depois toque em Enviar e escolha o Claude: o texto vai pronto para o chat.</p>
    <textarea id="idea" placeholder="ex: trocar a passada por agachamento búlgaro no treino C"></textarea>
    <div class="actions"><button class="btn sec sm" onclick="addIdea()">Salvar</button>${(S.ideas||[]).some(x=>!x.sent)?`<button class="btn sm" onclick="sendIdeas()">Enviar ${(S.ideas||[]).filter(x=>!x.sent).length} para o Claude</button>`:''}</div>
@@ -595,7 +596,106 @@ function startTimer(sec){
 function stopTimer(){clearInterval(timerI);const el=document.querySelector('.timer');el&&el.remove()}
 function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();o.stop(c.currentTime+.35)}catch(e){}}
 
+/* ---------- Sincronização entre os celulares (repositório privado no GitHub) ---------- */
+const FILE='kusunoki-dados.json';
+const b64e=t=>btoa(unescape(encodeURIComponent(t)));
+const b64d=t=>decodeURIComponent(escape(atob(t.replace(/\s/g,''))));
+const clone=o=>JSON.parse(JSON.stringify(o));
+function payload(){return {v:S.v,profiles:S.profiles,ideas:S.ideas||[],custom:S.custom||[]}}
+function mergeProfile(loc,rem,mine){
+  if(!rem) return loc; if(!loc) return rem;
+  const out=clone(mine?loc:rem), other=mine?rem:loc;
+  const del=[...new Set([...(loc.delHist||[]),...(rem.delHist||[])])];
+  const hm={};[...other.history||[],...out.history||[]].forEach(x=>{const k=x.d+'|'+x.w;if(!hm[k]||(!hm[k].vol&&x.vol))hm[k]=x});
+  out.history=Object.entries(hm).filter(([k])=>!del.includes(k)).map(([,x])=>x).sort((a,b)=>a.d.localeCompare(b.d));
+  out.delHist=del;
+  const L={};[other.loads||{},out.loads||{}].forEach(src=>{for(const n in src){L[n]=L[n]||{};src[n].forEach(x=>L[n][x.d]=x)}});
+  out.loads={};for(const n in L) out.loads[n]=Object.values(L[n]).sort((a,b)=>a.d.localeCompare(b.d));
+  return out;
+}
+function mergeAll(rem){
+  const own=S.sync.owner, keys=new Set([...Object.keys(S.profiles),...Object.keys(rem.profiles||{})]);
+  const profiles={};keys.forEach(k=>profiles[k]=mergeProfile(S.profiles[k],(rem.profiles||{})[k],k===own));
+  const im={};[...(rem.ideas||[]),...(S.ideas||[])].forEach(x=>{im[x.id]=im[x.id]?{...x,sent:im[x.id].sent||x.sent}:x});
+  const cm={};[...(rem.custom||[]),...(S.custom||[])].forEach(x=>cm[x.n]=x);
+  return {profiles,ideas:Object.values(im).sort((a,b)=>a.id-b.id),custom:Object.values(cm)};
+}
+let syncT=null,syncing=false;
+function syncSoon(){if(!S.sync||!S.sync.token||!S.sync.owner)return;clearTimeout(syncT);syncT=setTimeout(syncNow,2500)}
+async function gh(method,body){
+  const r=await fetch(`https://api.github.com/repos/${S.sync.repo}/contents/${FILE}`+(method==='GET'?'?t='+Date.now():''),{method,cache:'no-store',
+    headers:{Authorization:'Bearer '+S.sync.token,Accept:'application/vnd.github+json'},body:body?JSON.stringify(body):undefined});
+  return r;
+}
+async function syncNow(manual){
+  if(!S.sync||!S.sync.token||!S.sync.owner||syncing)return;
+  if(!navigator.onLine){if(manual)toast('Sem internet. Sincroniza quando voltar.');return}
+  syncing=true;
+  try{
+    for(let tryN=0;tryN<2;tryN++){
+      const g=await gh('GET');let rem={profiles:{}},sha;
+      if(g.status===200){const j=await g.json();sha=j.sha;rem=JSON.parse(b64d(j.content))}
+      else if(g.status!==404) throw g.status;
+      const m=mergeAll(rem);
+      const before=JSON.stringify(payload());
+      S.profiles=m.profiles;S.ideas=m.ideas;S.custom=m.custom;
+      const next=payload();
+      const remStr=JSON.stringify({v:rem.v,profiles:rem.profiles,ideas:rem.ideas||[],custom:rem.custom||[]});
+      if(JSON.stringify(next)!==remStr){
+        const p=await gh('PUT',{message:'Sincronização '+S.profiles[S.sync.owner].name,content:b64e(JSON.stringify(next,null,1)),...(sha?{sha}:{})});
+        if(p.status===409||p.status===422){continue}
+        if(!p.ok) throw p.status;
+      }
+      S.sync.last=Date.now();S.sync.err=null;save(true);
+      const typing=document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+      if((JSON.stringify(payload())!==before||view==='ajustes')&&!document.querySelector('.sheet')&&!typing) render();
+      if(manual)toast('Sincronizado');
+      break;
+    }
+  }catch(e){
+    S.sync.err=e===401||e===403?'Token inválido ou expirado':e===404?'Repositório não encontrado (confira o nome e as permissões do token)':'Não consegui sincronizar agora';
+    save(true);if(manual)toast(S.sync.err);if(view==='ajustes'&&!document.querySelector('.sheet'))render();
+  }finally{syncing=false}
+}
+function syncCard(){
+  const c=S.sync||{};const names=Object.entries(S.profiles);
+  if(!c.token) return `<details class="card"><summary style="font-weight:650;cursor:pointer">Juntar com o outro celular</summary>
+    <p class="muted small">Liga a sincronização para o comparativo e o histórico dos dois aparecerem nos dois celulares. Se o outro celular mandou um link, é só abrir o link.</p>
+    <label class="f">Repositório de dados</label><input id="sy-repo" value="vvisualfilms-brasil/kusunoki-dados">
+    <label class="f">Token do GitHub</label><input id="sy-token" type="password" placeholder="github_pat_… ou o link do outro celular" autocomplete="off">
+    <label class="f">Este celular é de</label><select id="sy-own">${names.map(([k,p])=>`<option value="${k}" ${k===S.active?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+    <div class="actions"><button class="btn sm" onclick="syncSetup()">Ligar sincronização</button></div></details>`;
+  const when=c.last?new Date(c.last).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'ainda não';
+  return `<div class="card"><h3>Sincronização</h3>
+    <div class="small" style="margin-top:4px">Este celular é de <b>${esc((S.profiles[c.owner]||{}).name||'?')}</b> · ${c.err?`<span style="color:var(--danger)">${esc(c.err)}</span>`:`sincronizado: ${when}`}</div>
+    <div class="actions"><button class="btn sec sm" onclick="syncNow(true)">Sincronizar agora</button><button class="btn sec sm" onclick="shareSync()">Link para o outro celular</button><button class="btn ghost sm" onclick="ask('Desligar a sincronização neste celular? Os dados continuam aqui.','Desligar',()=>{delete S.sync;save(true);render()})">Desligar</button></div></div>`;
+}
+function syncSetup(){
+  const repo=document.getElementById('sy-repo').value.trim().replace(/^https?:\/\/github.com\//,'').replace(/\/$/,''),token=document.getElementById('sy-token').value.trim(),owner=document.getElementById('sy-own').value;
+  const lm=token.match(/#sync=([^\s]+)/);if(lm){try{const c=JSON.parse(b64d(decodeURIComponent(lm[1])));S.sync={repo:c.repo,token:c.token,owner};S.active=owner;save(true);render();syncNow(true);return}catch(e){toast('Link inválido');return}}
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!token){toast('Preencha o repositório e o token');return}
+  S.sync={repo,token,owner};S.active=owner;save(true);render();syncNow(true);
+}
+async function shareSync(){
+  const url=location.origin+location.pathname+'#sync='+b64e(JSON.stringify({repo:S.sync.repo,token:S.sync.token}));
+  const text='Abra este link no seu celular para juntar os treinos no Kusunoki Fitness (não compartilhe com mais ninguém):\n'+url;
+  if(navigator.share){try{await navigator.share({text});return}catch(e){if(e&&e.name==='AbortError')return}}
+  try{await navigator.clipboard.writeText(url);toast('Link copiado')}catch(e){sheet(`<h3>Envie este link para o outro celular</h3><textarea style="min-height:140px">${esc(url)}</textarea><div class="actions"><button class="btn" onclick="closeSheet()">Fechar</button></div>`)}
+}
+function pairFromHash(){
+  const m=location.hash.match(/^#sync=(.+)$/);if(!m)return;
+  history.replaceState(null,'',location.pathname);
+  try{const c=JSON.parse(b64d(decodeURIComponent(m[1])));if(!c.token)throw 0;
+    view='ajustes';
+    setTimeout(()=>sheet(`<h3>Juntar os treinos</h3><p class="muted">De quem é este celular?</p><div class="list">${Object.entries(S.profiles).map(([k,p])=>`<button class="item" onclick="S.sync={repo:'${esc(c.repo)}',token:'${esc(c.token)}',owner:'${k}'};S.active='${k}';save(true);closeSheet();render();syncNow(true)"><span class="grow">${esc(p.name)}</span></button>`).join('')}</div>`),0);
+  }catch(e){toast('Link de sincronização inválido')}
+}
+pairFromHash();
 render();
+syncSoon();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncSoon()});
+window.addEventListener('online',syncSoon);
+window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#sync=')){pairFromHash();render()}});
 if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
