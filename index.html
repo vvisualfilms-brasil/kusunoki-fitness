@@ -215,13 +215,15 @@ function suggested(){
   }
   return p.schedule[new Date().getDay()]||null;
 }
-const W=id=>P().workouts.find(w=>w.id===id);
+const W=id=>{if(id==='J'){const t=S.together;return t&&t.d===today()&&t.p===S.active?t.tw:null}return P().workouts.find(w=>w.id===id)};
+const MAIN=['peito','costas','ombro','biceps','triceps','quadriceps','posterior','gluteo'];
+const otherKey=()=>Object.keys(S.profiles).find(k=>k!==S.active);
 
 // sessão do dia: trocas temporárias e exercícios marcados
 function sess(wid){
   const s=S.session;
   if(!s||s.d!==today()||s.p!==S.active||s.w!==wid){S.session={d:today(),p:S.active,w:wid,swaps:{},done:{},adj:{}};save();}
-  S.session.adj=S.session.adj||{};
+  S.session.adj=S.session.adj||{};S.session.extras=S.session.extras||[];
   return S.session;
 }
 
@@ -251,14 +253,17 @@ function vHoje(){
   const p=P(); const sid=suggested(); const wid=viewW||sid; const w=W(wid);
   const doneToday=p.history.find(x=>x.d===today());
   let h=`<div class="card"><div class="muted">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>${weekStrip()}</div>`;
-  h+=`<div class="tabs">${p.workouts.map(x=>`<button class="${x.id===wid?'on':''}" onclick="viewW='${x.id}';render()">${esc(x.id)}${x.id===sid?' ★':''}</button>`).join('')}</div>`;
+  h+=`<div class="tabs">${p.workouts.map(x=>`<button class="${x.id===wid?'on':''}" onclick="viewW='${x.id}';render()">${esc(x.id)}${x.id===sid?' ★':''}</button>`).join('')}${W('J')?`<button class="${wid==='J'?'on':''}" onclick="viewW='J';render()">Junto</button>`:''}</div>`;
+  const ok=otherKey();
   if(!w){
     return h+`<div class="card"><h2>Dia de descanso</h2><p class="muted">Nenhum treino marcado para hoje. Recupera bem! Se quiser treinar mesmo assim, escolha um treino acima.</p></div>`;
   }
   const s=sess(w.id);
-  const total=w.ex.length, nd=Object.values(s.done).filter(Boolean).length;
-  h+=`<div class="card"><div class="row"><div style="flex:1"><span class="pill acc">Treino ${esc(w.id)}${w.id===sid?' · sugerido hoje':''}</span><h2>${esc(w.title)}</h2><div class="muted">${nd}/${total} exercícios feitos</div></div></div>
-  ${doneToday?`<div class="swapped" style="margin-top:8px">✓ Treino ${esc(doneToday.w)} concluído hoje</div>`:''}</div>`;
+  const total=w.ex.length+s.extras.length, nd=Object.values(s.done).filter(Boolean).length;
+  h+=`<div class="card"><div class="row"><div style="flex:1"><span class="pill acc">${w.id==='J'?'Treino junto · só hoje':'Treino '+esc(w.id)}${w.id===sid?' · sugerido hoje':''}</span><h2>${esc(w.title)}</h2><div class="muted">${nd}/${total} exercícios feitos</div></div></div>
+  ${doneToday?`<div class="swapped" style="margin-top:8px">✓ Treino ${esc(doneToday.w==='J'?'junto':doneToday.w)} concluído hoje</div>`:''}
+  ${ok&&w.id!=='J'?`<button class="small" style="color:var(--accent);margin-top:8px;padding:0" onclick="togetherSheet()">Treinar junto com ${esc(S.profiles[ok].name.split(' ')[0])} →</button>`:''}</div>`;
+  h+=weekHint(w.id);
   w.ex.forEach((e,i)=>{
     const name=s.swaps[i]||e.n; const ll=lastLoad(name); const done=!!s.done[i];
     const info=exInfo(name);
@@ -270,6 +275,7 @@ function vHoje(){
         ${p.avoidLumbar&&info.lomb?`<div class="warn">⚠ Coloca carga na lombar</div>`:''}
         ${(()=>{const a=s.adj[i];return `<div class="meta tap" onclick="adjSheet('${w.id}',${i})" title="Ajustar séries e repetições de hoje"><span class="pill ${a?'adj':''}">${a?a.s:e.s} séries</span><span class="pill ${a?'adj':''}">${esc(a?a.r:e.r)} reps</span><span class="pill">${e.rest}s descanso</span></div>${a?`<div class="swapped">Ajustado hoje (plano: ${e.s} × ${esc(e.r)})${a.kg?` · carga sugerida ~${a.kg} kg`:''}</div>`:''}`})()}
         <div style="margin-top:8px" class="small">Última carga: ${ll?`<span class="load">${esc(ll.kg)} kg</span> <span class="muted">(${fmtDate(ll.d)})</span>`:'<span class="muted">ainda não registrada</span>'}</div>
+        ${w.id==='J'&&ok?otherLoad(ok,name):''}
         ${e.note?`<div class="muted small" style="margin-top:4px">${esc(e.note)}</div>`:''}
         <div class="actions">
           <button class="btn sec sm" onclick="askLoad('${encodeURIComponent(name)}')">Registrar carga</button>
@@ -278,15 +284,42 @@ function vHoje(){
         </div>
       </div></div>`;
   });
+  s.extras.forEach((e,j)=>{
+    const k='x'+j,ll=lastLoad(e.n),done=!!s.done[k];
+    h+=`<div class="card ex ${done?'done':''}">
+      <button class="chk" onclick="toggleDone('${k}')" aria-label="Marcar feito">${done?'✓':''}</button>
+      <div class="body"><div class="name">${esc(e.n)}</div><div class="swapped">Extra só de hoje</div>
+        <div class="meta"><span class="pill">${e.s} séries</span><span class="pill">${esc(e.r)} reps</span><span class="pill">${e.rest}s descanso</span></div>
+        <div style="margin-top:8px" class="small">Última carga: ${ll?`<span class="load">${esc(ll.kg)} kg</span> <span class="muted">(${fmtDate(ll.d)})</span>`:'<span class="muted">ainda não registrada</span>'}</div>
+        ${w.id==='J'&&ok?otherLoad(ok,e.n):''}
+        <div class="actions"><button class="btn sec sm" onclick="askLoad('${encodeURIComponent(e.n)}')">Registrar carga</button><button class="btn sec sm" onclick="startTimer(${e.rest})">⏱ ${e.rest}s</button><button class="btn ghost sm" onclick="sess('${w.id}').extras.splice(${j},1);delete S.session.done['${k}'];save();render()">Remover</button></div>
+      </div></div>`;
+  });
+  h+=`<button class="btn ghost" style="margin-bottom:12px" onclick="addExtra('${w.id}')">+ Exercício extra hoje</button>`;
   h+=`<button class="btn" onclick="finish('${w.id}')">${doneToday&&doneToday.w===w.id?'Treino já concluído hoje ✓':'Concluir treino'}</button>`;
   return h;
 }
 
 function toggleDone(i){const s=S.session;s.done[i]=!s.done[i];save();render()}
+function addExtra(wid,n,sets,reps){
+  const push=x=>{sess(wid).extras.push({n:x,s:sets||3,r:reps||'10-12',rest:60});save();closeSheet();toast('Extra adicionado só para hoje');render()};
+  if(n) push(n); else exPicker(push);
+}
+function otherLoad(k,n){const l=(S.profiles[k].loads[n]||[]).slice(-1)[0];return l?`<div class="small muted">${esc(S.profiles[k].name.split(' ')[0])}: ${esc(l.kg)} kg</div>`:''}
+function togetherSheet(){
+  const k=otherKey(),o=S.profiles[k];
+  sheet(`<h3>Treinar junto com ${esc(o.name)}</h3><p class="muted small">Você faz o treino dela hoje, com as suas cargas, e vê a última carga dela em cada exercício. Seu plano não muda.</p>
+   <div class="list">${o.workouts.map(w=>`<button class="item" onclick="startTogether('${k}','${w.id}')"><span class="grow"><b>${esc(w.id)}</b> · ${esc(w.title)}<br><span class="muted small">${w.ex.length} exercícios</span></span></button>`).join('')}</div>`);
+}
+function startTogether(k,wid){
+  const o=S.profiles[k],w=o.workouts.find(x=>x.id===wid);
+  S.together={d:today(),p:S.active,tw:{id:'J',title:`Treino ${w.id} de ${o.name.split(' ')[0]} (junto)`,ex:clone(w.ex)}};
+  viewW='J';save(true);closeSheet();window.scrollTo(0,0);render();
+}
 function finish(wid){
   const p=P(); const w=W(wid);
   if(p.history.some(x=>x.d===today()&&x.w===wid)){toast('Esse treino já está marcado hoje');return}
-  p.history.push({d:today(),w:wid,t:w.title,vol:workVolume(wid)});save();toast('Treino concluído! 💪');render();
+  p.history.push({d:today(),w:wid,t:w.title,vol:workVolume(wid),g:groupSets(sessEx(wid))});save();toast('Treino concluído! 💪');render();
 }
 
 /* ---------- Volume e equivalência ---------- */
@@ -300,14 +333,19 @@ function equiv(s0,r0,r1,kg0){
   const kg=kg0!=null?Math.round(kg0*epley(r0)/epley(r1)*2)/2:null;
   return {sets,kg};
 }
+// exercícios feitos de fato hoje (com trocas, ajustes e extras). Se nada foi marcado, conta tudo.
+function sessEx(wid){
+  const w=W(wid),s=S.session&&S.session.w===wid&&S.session.d===today()?S.session:{swaps:{},done:{},adj:{},extras:[]};
+  const all=w.ex.map((e,i)=>{const a=(s.adj||{})[i];return {k:i,n:s.swaps[i]||e.n,s:a?a.s:e.s,r:a?a.r:e.r,kg:a&&a.kg}})
+    .concat((s.extras||[]).map((e,j)=>({k:'x'+j,n:e.n,s:e.s,r:e.r})));
+  const anyDone=Object.values(s.done||{}).some(Boolean);
+  return anyDone?all.filter(x=>s.done[x.k]):all;
+}
 function workVolume(wid){
-  const w=W(wid),s=S.session&&S.session.w===wid?S.session:{swaps:{},done:{},adj:{}};
-  const anyDone=Object.values(s.done||{}).some(Boolean); let v=0;
-  w.ex.forEach((e,i)=>{if(anyDone&&!s.done[i])return;const n=s.swaps[i]||e.n;const a=(s.adj||{})[i];
-    const r=repsAvg(a?a.r:e.r),ll=lastLoad(n),kg=a&&a.kg?a.kg:(ll?kgNum(ll.kg):null);
-    if(r&&kg) v+=(a?a.s:e.s)*r*kg});
+  let v=0;sessEx(wid).forEach(x=>{const r=repsAvg(x.r),ll=lastLoad(x.n),kg=x.kg||(ll?kgNum(ll.kg):null);if(r&&kg)v+=x.s*r*kg});
   return Math.round(v);
 }
+function groupSets(list){const g={};list.forEach(x=>{const k=exInfo(x.n).g;g[k]=(g[k]||0)+(+x.s||0)});return g}
 const RANGES=['6-8','8-10','10-12','12-15','15-20'];
 let adjState=null;
 function adjSheet(wid,i){
@@ -444,18 +482,38 @@ function vPlano(){
   <div style="height:12px"></div><button class="btn danger" onclick="rmWorkout('${w.id}')">Excluir treino ${esc(w.id)}</button>`;
   return h;
 }
-function weeklyVolume(){
+function plannedSets(){
   const p=P(),cnt={};
   p.workouts.forEach(w=>{
     const times=p.mode==='semana'?Object.values(p.schedule).filter(x=>x===w.id).length:1;
     w.ex.forEach(e=>{const g=exInfo(e.n).g;cnt[g]=(cnt[g]||0)+e.s*times})});
-  const main=['peito','costas','ombro','biceps','triceps','quadriceps','posterior','gluteo'];
-  const rows=Object.keys(GROUPS).filter(g=>cnt[g]).map(g=>{
+  return cnt;
+}
+// sugere exercícios de um grupo: primeiro os que a pessoa já tem carga registrada
+function suggestEx(g,exclude){
+  const p=P();return allEx().filter(x=>x.g===g&&!exclude.includes(x.n)&&!(p.avoidLumbar&&x.lomb))
+    .sort((a,b)=>(lastLoad(b.n)?1:0)-(lastLoad(a.n)?1:0)).slice(0,4);
+}
+function moreSheet(g,need){
+  const p=P(),inPlan=p.workouts.flatMap(w=>w.ex.map(e=>e.n));
+  const best=p.workouts.map(w=>({w,c:w.ex.filter(e=>exInfo(e.n).g===g).length})).sort((a,b)=>b.c-a.c||a.w.ex.length-b.w.ex.length)[0];
+  const sets=Math.min(4,Math.max(2,need));
+  sheet(`<h3>Mais ${esc(GROUPS[g])}</h3><p class="muted small">Faltam ${need} séries na semana para chegar a 10. Escolha um exercício para adicionar ${sets} séries:</p>
+   <label class="f">No treino</label><select id="mw">${p.workouts.map(w=>`<option value="${w.id}" ${best&&best.w.id===w.id?'selected':''}>${w.id} · ${esc(w.title)}</option>`).join('')}</select>
+   <div class="list" style="margin-top:10px">${suggestEx(g,inPlan).map(x=>`<button class="item" onclick="addMore('${encodeURIComponent(x.n)}',${sets})"><span class="grow">${esc(x.n)}</span><span class="muted small">${lastLoad(x.n)?esc(lastLoad(x.n).kg)+' kg':''}</span></button>`).join('')||'<div class="muted">Nenhuma sugestão nova nesse grupo.</div>'}</div>
+   <div class="muted small">Ou aumente as séries de um exercício que já está no treino, na lista abaixo.</div>`);
+}
+function addMore(enc,sets){const wid=document.getElementById('mw').value;W(wid).ex.push(E(decodeURIComponent(enc),sets,'10-12',60));save();closeSheet();planSel=wid;toast('Adicionado ao treino '+wid);render()}
+function weeklyVolume(){
+  const cnt=plannedSets();
+  const main=MAIN;
+  MAIN.forEach(g=>cnt[g]=cnt[g]||0);
+  const rows=Object.keys(GROUPS).filter(g=>cnt[g]||MAIN.includes(g)).map(g=>{
     const n=cnt[g];let tag='';
-    if(main.includes(g)) tag=n<10?'<span class="pill low">pouco · +'+(10-n)+'</span>':n>20?'<span class="pill high">muito · −'+(n-20)+'</span>':'<span class="pill ok">ok</span>';
+    if(main.includes(g)) tag=n<10?`<button class="pill low" onclick="moreSheet('${g}',${10-n})">pouco · +${10-n} ›</button>`:n>20?'<span class="pill high">muito · −'+(n-20)+'</span>':'<span class="pill ok">ok</span>';
     return `<div class="vol"><span>${GROUPS[g]}</span><span class="row" style="gap:8px"><b>${n}</b>${tag}</span></div>`}).join('');
   return `<details class="card"><summary style="font-weight:650;cursor:pointer">Séries por semana de cada grupo</summary>
-    <div class="muted small" style="margin:8px 0">Para hipertrofia, a referência é de 10 a 20 séries por grupo na semana. Conta só o músculo principal de cada exercício.</div>${rows}</details>`;
+    <div class="muted small" style="margin:8px 0">Para hipertrofia, a referência é de 10 a 20 séries por grupo na semana. Conta só o músculo principal de cada exercício. Toque em "pouco" para ver sugestões.</div>${rows}</details>`;
 }
 function setEx(wid,i,k,v){W(wid).ex[i][k]=v;save()}
 function mv(wid,i,d){const a=W(wid).ex;const j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render()}
@@ -507,6 +565,7 @@ function vProg(){
   // sequência de semanas atingindo meta
   let streak=0; for(let i=10;i>=0;i--){if(weeks[i].c>=target)streak++;else break} if(weeks[11].c>=target)streak++;
   let h=`<div class="grid3" style="margin-bottom:12px"><div class="stat"><b>${thisWeek}</b><span class="muted small">esta semana</span></div><div class="stat"><b>${month}</b><span class="muted small">este mês</span></div><div class="stat"><b>${hist.length}</b><span class="muted small">no total</span></div></div>`;
+  h+=weekCard();
   h+=compareCard();
   h+=`<div class="card"><h3>Treinos por semana</h3><div class="muted small">Linha laranja = meta de ${target} por semana. Semanas seguidas na meta: ${streak}</div>${svg}</div>`;
   // cargas registradas
@@ -515,6 +574,33 @@ function vProg(){
      return `<button class="item" style="display:flex;width:100%;text-align:left;padding:10px 0;border-bottom:1px solid var(--line)" onclick="askLoad('${encodeURIComponent(n)}')"><span style="flex:1">${esc(n)}<br><span class="muted small">${a.length} registro(s) · desde ${fmtDate(f.d)}</span></span><span style="text-align:right"><b class="load">${esc(l.kg)} kg</b>${diff!==null?`<br><span class="small" style="color:${diff>=0?'var(--accent2)':'var(--danger)'}">${diff>=0?'+':''}${+diff.toFixed(1)} kg</span>`:''}</span></button>`}).join(''):'<p class="muted">Nenhuma carga registrada ainda. Toque em "Registrar carga" num exercício.</p>'}</div>`;
   h+=`<div class="card"><h3>Últimos treinos</h3>${hist.slice(-15).reverse().map((x,k)=>`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="pill acc">${esc(x.w)}</span><span style="flex:1">${esc(x.t||'')}</span><span class="muted small">${fmtDate(x.d)}</span><button class="mv" onclick="rmHist(${hist.length-1-k})" aria-label="Apagar">✕</button></div>`).join('')||'<p class="muted">Nada ainda. Conclua um treino na aba Hoje.</p>'}</div>`;
   return h;
+}
+function weekStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d}
+const ds=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function weekStatus(){
+  const p=P(),plan=plannedSets(),ws=ds(weekStart()),done={},left={};
+  p.history.filter(x=>x.d>=ws).forEach(x=>{const g=x.g||groupSets((W(x.w)||{ex:[]}).ex);for(const k in g)done[k]=(done[k]||0)+g[k]});
+  // o que ainda está agendado nos próximos dias desta semana (modo por dia da semana)
+  if(p.mode==='semana'){const did=p.history.some(x=>x.d===today());const n=7-((new Date().getDay()+6)%7);
+    for(let i=did?1:0;i<n;i++){const d=new Date();d.setDate(d.getDate()+i);const w=W(p.schedule[d.getDay()]);
+      if(w){const g=groupSets(w.ex);for(const k in g)left[k]=(left[k]||0)+g[k]}}}
+  return MAIN.map(g=>{const target=Math.max(10,plan[g]||0);return {g,target,done:done[g]||0,left:left[g]||0}});
+}
+function weekHint(wid){
+  if(P().history.some(x=>x.d===today()))return '';
+  const today_=groupSets(W(wid).ex.map(e=>e));
+  const lack=weekStatus().map(x=>({...x,miss:x.target-x.done-Math.max(x.left,today_[x.g]||0)})).filter(x=>x.miss>=3).sort((a,b)=>b.miss-a.miss)[0];
+  if(!lack)return '';
+  const cur=W(wid).ex.map(e=>e.n).concat(sess(wid).extras.map(e=>e.n));
+  const ex=suggestEx(lack.g,cur)[0];if(!ex)return '';
+  const sets=Math.min(4,lack.miss);
+  return `<div class="card" style="border:1px dashed var(--line)"><div class="small">Pelo que você treinou, faltam <b>${lack.miss} séries de ${esc(GROUPS[lack.g])}</b> nesta semana.</div>
+   <div class="actions"><button class="btn sec sm" onclick="addExtra('${wid}',decodeURIComponent('${encodeURIComponent(ex.n)}'),${sets})">+ ${esc(ex.n)} ${sets}×10-12 hoje</button></div></div>`;
+}
+function weekCard(){
+  const st=weekStatus();
+  return `<div class="card"><h3>Meta da semana</h3><div class="muted small">Séries feitas por grupo desde segunda. A meta é o seu plano (mínimo de 10 por grupo).</div>
+   ${st.map(x=>{const pct=Math.min(100,x.done/x.target*100);return `<div class="cmp" style="grid-template-columns:96px 1fr 54px"><span>${esc(GROUPS[x.g])}</span><div class="bar"><i style="width:${Math.max(2,pct)}%;background:${pct>=100?'var(--accent2)':'var(--accent)'}"></i></div><b style="text-align:right">${x.done}/${x.target}</b></div>`}).join('')}</div>`;
 }
 function compareCard(){
   const ks=Object.keys(S.profiles); if(ks.length<2) return '';
