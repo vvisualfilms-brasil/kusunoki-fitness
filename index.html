@@ -132,7 +132,7 @@ const LIB = [
  ['Tríceps corda na polia','triceps',0],['Tríceps barra na polia','triceps',0],['Tríceps francês sentado','triceps',0],
  ['Tríceps testa','triceps',0],['Tríceps no banco (mergulho)','triceps',0],['Tríceps unilateral no cabo','triceps',0],
  // Quadríceps
- ['Cadeira extensora','quadriceps',0],['Leg press 45°','quadriceps',1],['Leg press horizontal','quadriceps',0],
+ ['Cadeira extensora','quadriceps',0],['Cadeira extensora unilateral','quadriceps',0],['Leg press 45°','quadriceps',1],['Leg press horizontal','quadriceps',0],
  ['Agachamento livre','quadriceps',1],['Agachamento no Smith','quadriceps',1],['Hack machine','quadriceps',1],
  ['Afundo com halteres','quadriceps',0],['Passada (avanço) com halteres','quadriceps',0],['Agachamento búlgaro','quadriceps',0],
  ['Cadeira adutora','quadriceps',0],
@@ -161,10 +161,11 @@ function seed(){
    workouts:[
     {id:'A',title:'Peito e tríceps',ex:[E('Supino reto com barra',4,'8-10',90),E('Supino inclinado com halteres',3,'8-12',90),E('Voador no crossover',3,'12-15',60),E('Tríceps corda na polia',3,'10-12',60),E('Tríceps francês sentado',3,'10-12',60)]},
     {id:'B',title:'Costas e bíceps',ex:[E('Barra fixa',4,'6-10',90),E('Puxada pronada',3,'8-12',75),E('Puxada neutra na máquina',3,'10-12',75),E('Remada máquina com apoio no peito',3,'10-12',75,'Apoio no peito protege a lombar'),E('Rosca direta com barra',3,'8-12',60),E('Rosca martelo',3,'10-12',60)]},
-    {id:'C',title:'Pernas completo',ex:[E('Cadeira extensora',6,'12-15 / 8-10',75,'Único de anterior: 3 séries de 12-15 leves, depois 3 de 8-10 pesadas. Última série pode ser drop-set'),E('Passada (avanço) com halteres',3,'10 cada perna',75,'Carga leve, tronco reto. Pule se incomodar a lombar'),E('Mesa flexora (flexora deitada)',4,'10-12',75),E('Cadeira abdutora',3,'15',60),E('Cadeira adutora',3,'15',60),E('Panturrilha sentado',4,'12-15',45),E('Extensão lombar no banco romano',3,'12-15',60,'Sem carga, movimento controlado')]},
-    {id:'D',title:'Complementar: ombro e braços',ex:[E('Elevação lateral com halteres',4,'12-15',45),E('Desenvolvimento com halteres (sentado com encosto)',3,'8-12',75),E('Face pull',3,'12-15',60),E('Rosca concentrada',3,'10-12',45),E('Tríceps testa',3,'10-12',60),E('Abdominal na máquina',3,'15-20',45)]},
+    {id:'C',title:'Quadríceps',ex:[E('Cadeira extensora',6,'12-15 / 8-10',75,'Único de anterior: 3 séries de 12-15 leves, depois 3 de 8-10 pesadas. Última série pode ser drop-set'),E('Cadeira extensora unilateral',3,'12-15',60,'Uma perna por vez, pausa de 1s em cima'),E('Passada (avanço) com halteres',3,'10 cada perna',75,'Carga leve, tronco reto. Pule se incomodar a lombar'),E('Cadeira adutora',3,'15',60),E('Panturrilha sentado',4,'12-15',45)]},
+    {id:'D',title:'Posterior e glúteo',ex:[E('Mesa flexora (flexora deitada)',4,'10-12',75),E('Cadeira flexora',3,'10-12',60),E('Flexora em pé unilateral',3,'12 cada perna',45),E('Elevação pélvica na máquina',4,'10-12',75,'Apoio nas costas, sem arquear a lombar'),E('Cadeira abdutora',3,'15',45),E('Glúteo na máquina (coice)',3,'12 cada perna',45)]},
+    {id:'E',title:'Complementar: ombro e braços',ex:[E('Elevação lateral com halteres',4,'12-15',45),E('Desenvolvimento com halteres (sentado com encosto)',3,'8-12',75),E('Face pull',3,'12-15',60),E('Rosca concentrada',4,'10-12',45),E('Tríceps testa',4,'10-12',60),E('Abdominal na máquina',3,'15-20',45)]},
    ],
-   schedule:{1:'A',2:'B',3:'C',4:'D',5:null,6:null,0:null}};
+   schedule:{1:'A',2:'B',3:'C',4:'D',5:'E',6:null,0:null}};
   const hel={name:'Helena',kg:53,cm:158,avoidLumbar:false,mode:'semana',loads:{},history:[],
    workouts:[
     {id:'A',title:'Posterior e glúteo',ex:[E('Elevação pélvica',4,'8-12',90),E('Levantamento terra romeno',3,'8-10',90),E('Mesa flexora (flexora deitada)',3,'10-12',60),E('Agachamento búlgaro',3,'10 cada perna',75),E('Cadeira abdutora',3,'15',45),E('Cadeira flexora',3,'12',60)]},
@@ -173,7 +174,7 @@ function seed(){
     {id:'D',title:'Bíceps, tríceps e ombro',ex:[E('Desenvolvimento com halteres (sentado com encosto)',3,'10-12',75),E('Elevação lateral com halteres',4,'12-15',45),E('Tríceps francês sentado',3,'10-12',60),E('Tríceps corda na polia',3,'12',45),E('Rosca direta com barra',3,'10-12',60),E('Rosca concentrada',3,'10-12',45),E('Prancha',3,'30-45s',45)]},
    ],
    schedule:{1:'A',2:'B',3:'C',4:'D',5:null,6:null,0:null}};
-  return {v:3,active:'leo',profiles:{leo,hel},custom:[],session:null,ideas:[]};
+  return {v:4,active:'leo',profiles:{leo,hel},custom:[],session:null,ideas:[]};
 }
 
 /* ---------- Estado ---------- */
@@ -193,6 +194,17 @@ if(S.v<3){
   S.ideas=S.ideas||[]; S.v=3;
 }
 const save=(noSync)=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){};if(!noSync)syncSoon()};
+if(S.v<4){
+  // divide as pernas do Leonardo: C quadríceps, D posterior e glúteo, antigo D vira E
+  const p=S.profiles.leo;
+  if(p&&!p.workouts.some(w=>/posterior/i.test(w.title))&&p.workouts.some(w=>w.id==='C'&&/pernas/i.test(w.title))&&!p.workouts.some(w=>w.id==='E')){
+    const nw=seed().profiles.leo.workouts, oldD=p.workouts.find(w=>w.id==='D');
+    p.workouts=p.workouts.map(w=>w.id==='C'?nw[2]:w.id==='D'?nw[3]:w);
+    if(oldD){oldD.id='E';oldD.ex.forEach(e=>{if(/rosca concentrada|tríceps unilateral|tríceps testa/i.test(e.n))e.s=Math.max(e.s,4)});p.workouts.push(oldD)}
+    p.schedule={1:'A',2:'B',3:'C',4:'D',5:'E',6:null,0:null};
+  }
+  S.v=4; save(true);
+}
 const P=()=>S.profiles[S.active];
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const allEx=()=>LIB.concat(S.custom);
