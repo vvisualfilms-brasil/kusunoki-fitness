@@ -234,7 +234,13 @@ const otherKey=()=>Object.keys(S.profiles).find(k=>k!==S.active);
 // sessão do dia: trocas temporárias e exercícios marcados
 function sess(wid){
   const s=S.session;
-  if(!s||s.d!==today()||s.p!==S.active||s.w!==wid){S.session={d:today(),p:S.active,w:wid,swaps:{},done:{},adj:{}};save();}
+  if(!s||s.d!==today()||s.p!==S.active||s.w!==wid){
+    // guarda o treino atual do dia e recupera o que já foi marcado no outro (vale só para hoje)
+    const all=(S.sessAll||{}),keep={};for(const k in all) if(all[k].d===today()) keep[k]=all[k];
+    if(s&&s.d===today()) keep[s.p+'|'+s.w]=s;
+    const k=S.active+'|'+wid;
+    S.session=keep[k]||{d:today(),p:S.active,w:wid,swaps:{},done:{},adj:{}};delete keep[k];
+    S.sessAll=keep;save(true);}
   S.session.adj=S.session.adj||{};S.session.extras=S.session.extras||[];
   return S.session;
 }
