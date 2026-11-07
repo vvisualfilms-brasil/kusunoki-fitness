@@ -210,6 +210,9 @@ const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth
 const allEx=()=>LIB.concat(S.custom);
 const exInfo=n=>allEx().find(x=>x.n===n)||{n,g:'outro',lomb:false};
 const lastLoad=n=>{const l=P().loads[n];return l&&l.length?l[l.length-1]:null};
+// ids entram em onclick: só aceita dados com ids simples (backup ou sincronização)
+const okId=x=>typeof x==='string'&&/^[\w-]{1,20}$/.test(x);
+const dataOk=d=>!!d&&typeof d.profiles==='object'&&Object.entries(d.profiles).every(([k,p])=>okId(k)&&p&&Array.isArray(p.workouts)&&p.workouts.every(w=>w&&okId(w.id)&&Array.isArray(w.ex)));
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDate=d=>{const[y,m,dd]=d.split('-');return dd+'/'+m};
 
@@ -676,7 +679,7 @@ function exportData(){
 }
 function importData(inp){
   const f=inp.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.profiles)throw 0;ask('Substituir os dados deste celular pelo backup?','Restaurar',()=>{S=d;save();toast('Backup restaurado');render()})}catch(e){toast('Arquivo de backup inválido')}};
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!dataOk(d))throw 0;ask('Substituir os dados deste celular pelo backup?','Restaurar',()=>{S=d;save();toast('Backup restaurado');render()})}catch(e){toast('Arquivo de backup inválido')}};
   r.readAsText(f);
 }
 function resetPlan(){
@@ -738,7 +741,7 @@ async function syncNow(manual){
   try{
     for(let tryN=0;tryN<2;tryN++){
       const g=await gh('GET');let rem={profiles:{}},sha;
-      if(g.status===200){const j=await g.json();sha=j.sha;rem=JSON.parse(b64d(j.content))}
+      if(g.status===200){const j=await g.json();sha=j.sha;rem=JSON.parse(b64d(j.content));if(!dataOk(rem))throw 'dados'}
       else if(g.status!==404) throw g.status;
       const m=mergeAll(rem);
       const before=JSON.stringify(payload());
@@ -776,7 +779,7 @@ function syncCard(){
 }
 function syncSetup(){
   const repo=document.getElementById('sy-repo').value.trim().replace(/^https?:\/\/github.com\//,'').replace(/\/$/,''),token=document.getElementById('sy-token').value.trim(),owner=document.getElementById('sy-own').value;
-  const lm=token.match(/#sync=([^\s]+)/);if(lm){try{const c=JSON.parse(b64d(decodeURIComponent(lm[1])));S.sync={repo:c.repo,token:c.token,owner};S.active=owner;save(true);render();syncNow(true);return}catch(e){toast('Link inválido');return}}
+  const lm=token.match(/#sync=([^\s]+)/);if(lm){try{const c=JSON.parse(b64d(decodeURIComponent(lm[1])));if(!/^[\w.-]+\/[\w.-]+$/.test(c.repo||'')||typeof c.token!=='string')throw 0;S.sync={repo:c.repo,token:c.token,owner};S.active=owner;save(true);render();syncNow(true);return}catch(e){toast('Link inválido');return}}
   if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!token){toast('Preencha o repositório e o token');return}
   S.sync={repo,token,owner};S.active=owner;save(true);render();syncNow(true);
 }
@@ -786,12 +789,17 @@ async function shareSync(){
   if(navigator.share){try{await navigator.share({text});return}catch(e){if(e&&e.name==='AbortError')return}}
   try{await navigator.clipboard.writeText(url);toast('Link copiado')}catch(e){sheet(`<h3>Envie este link para o outro celular</h3><textarea style="min-height:140px">${esc(url)}</textarea><div class="actions"><button class="btn" onclick="closeSheet()">Fechar</button></div>`)}
 }
+// dados do link ficam numa variável, nunca dentro do onclick
+let pendingPair=null;
+function pairAs(k){if(!pendingPair||!S.profiles[k])return;S.sync={...pendingPair,owner:k};pendingPair=null;S.active=k;save(true);closeSheet();render();syncNow(true)}
 function pairFromHash(){
   const m=location.hash.match(/^#sync=(.+)$/);if(!m)return;
   history.replaceState(null,'',location.pathname);
   try{const c=JSON.parse(b64d(decodeURIComponent(m[1])));if(!c.token)throw 0;
     view='ajustes';
-    setTimeout(()=>sheet(`<h3>Juntar os treinos</h3><p class="muted">De quem é este celular?</p><div class="list">${Object.entries(S.profiles).map(([k,p])=>`<button class="item" onclick="S.sync={repo:'${esc(c.repo)}',token:'${esc(c.token)}',owner:'${k}'};S.active='${k}';save(true);closeSheet();render();syncNow(true)"><span class="grow">${esc(p.name)}</span></button>`).join('')}</div>`),0);
+    if(!/^[\w.-]+\/[\w.-]+$/.test(c.repo||'')||typeof c.token!=='string')throw 0;
+    pendingPair={repo:c.repo,token:c.token};
+    setTimeout(()=>sheet(`<h3>Juntar os treinos</h3><p class="muted">De quem é este celular?</p><div class="list">${Object.entries(S.profiles).map(([k,p])=>`<button class="item" onclick="pairAs('${esc(k)}')"><span class="grow">${esc(p.name)}</span></button>`).join('')}</div>`),0);
   }catch(e){toast('Link de sincronização inválido')}
 }
 pairFromHash();
